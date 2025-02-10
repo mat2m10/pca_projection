@@ -1,0 +1,5 @@
+include README.md
+include requirements.txt
+include chasm/*.py
+include chasm/plink/*
+recursive-include chasm/plink *
