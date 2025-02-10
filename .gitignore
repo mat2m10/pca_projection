@@ -1,1 +1,4 @@
 data/
+.env
+chasm/plink/plink
+chasm/plink/plink2
