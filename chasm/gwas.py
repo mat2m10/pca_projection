@@ -4,30 +4,7 @@ import statsmodels.api as sm
 import scipy.stats as stats
 import pandas as pd
 
-"""
-    This function takes the path to the plink file and the path to the output directory
-    and returns the allele frequencies of the plink file(s).
-"""
 
-def make_AFs(path_data, name_file_input, path_plink, path_output):
-    for chrom in list(range(22)):
-        chrom += 1
-        name_file_output = f"chrom_{chrom}_AFs_{name_file_input}"
-        path_input_data = f"{path_data}/{name_file_input}"
-        cmd = (
-            f"cd {path_data}; {path_plink}/plink2 "
-            f"--bfile {name_file_input} "
-            f"--chr {chrom} "
-            f"--freq "
-            f"--out {path_output}/{name_file_output} "
-        )
-        process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, stderr = process.communicate()
-        
-        # Decode output if necessary (for Python 3 compatibility)
-        stdout = stdout.decode('utf-8')
-        stderr = stderr.decode('utf-8')
-        print(stderr)
         
         
 def ols_regression(y, X1, covs=None):

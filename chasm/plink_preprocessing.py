@@ -10,7 +10,30 @@ import subprocess
 def test():
     return "hello"
 
+"""
+    This function takes the path to the plink file and the path to the output directory
+    and returns the allele frequencies of the plink file(s).
+"""
 
+def make_AFs(path_data, name_file_input, path_plink, path_output):
+    for chrom in list(range(22)):
+        chrom += 1
+        name_file_output = f"chrom_{chrom}_AFs_{name_file_input}"
+        path_input_data = f"{path_data}/{name_file_input}"
+        cmd = (
+            f"cd {path_data}; {path_plink}/plink2 "
+            f"--bfile {name_file_input} "
+            f"--chr {chrom} "
+            f"--freq "
+            f"--out {path_output}/{name_file_output} "
+        )
+        process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = process.communicate()
+        
+        # Decode output if necessary (for Python 3 compatibility)
+        stdout = stdout.decode('utf-8')
+        stderr = stderr.decode('utf-8')
+        print(stderr)
         
 """
     This function concatenates the allele frequencies of the different populations
@@ -141,6 +164,10 @@ def divide_into_chunks(path_input_afs, path_input_plink_fam, path_plink, path_ou
                 combined.to_pickle(f"{path_output_chrom}/chunk_{i}_size_{len(AF_chunk)}_mafs_{minaf}_{maxaf}.pkl")
             except Exception as e:
                 print(e)
+
+"""
+This function checks if there are some columns which are not SNPs and creates an ID df with them
+"""
                 
 def make_ids(path_input, path_output):    
     chrom1  = os.listdir(path_input)[0]
@@ -167,8 +194,15 @@ def make_ids(path_input, path_output):
             chunk = chunk.drop(columns=non_snp_cols)
             chunk.to_pickle(path_chunk)
             
+"""
+Check if the columns are SNPs
+"""
 def is_snp(col):
     return any(char.isdigit() for char in col)
+
+"""
+This function downloads the VCF files from the Ensembl FTP server
+"""
 
 def download_chromosome_vcf(chromosome, output_path):
     # Define the Ensembl FTP URL
@@ -190,6 +224,10 @@ def download_chromosome_vcf(chromosome, output_path):
     except subprocess.CalledProcessError as e:
         print(f"Error downloading {filename}: {e}")
 
+
+"""
+Parse the vcf
+"""
 
 def parse_vcf(path_output, build_name):
     # Extract chromosome name
