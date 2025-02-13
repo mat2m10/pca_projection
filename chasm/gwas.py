@@ -80,18 +80,13 @@ def project_on_dimensions(path_input_raw, path_input, nr_of_projected_dimensions
     # Ensure the output directory exists
     os.makedirs(path_input, exist_ok=True)
     path_projected = path_input
-    path_input = f"{path_input}/to_do"
+    path_input = f"{path_input}/to_do/"
+    os.makedirs(path_input, exist_ok=True)
     # Copy all contents from input to output
     for item in os.listdir(path_input_raw):
-        src_path = os.path.join(path_input_raw, item)
-        dest_path = os.path.join(path_input, item)
-        
-        if os.path.isdir(src_path):
-            shutil.copytree(src_path, dest_path, dirs_exist_ok=True)  # Copy directories
-        else:
-            shutil.copy2(src_path, dest_path)  # Copy files
-
-
+        os.system(f"cp -r {path_input_raw}/{item} {path_input}")
+    
+    snp_ids = []
     for i in list(range(nr_of_projected_dimensions)):
         n_components = 10
         nr_snps = 20_000
@@ -132,10 +127,13 @@ def project_on_dimensions(path_input_raw, path_input, nr_of_projected_dimensions
                 
                 # Assuming `p_vals` is a pandas DataFrame
                 to_keep = p_vals.sort_values(by='-logp', ascending=False).head(to_take)
-
+                to_keep['dim'] = i+1
+                snp_ids.append(to_keep)
+                
                 # Filter out rows that are in `to_keep`
                 to_do = p_vals.loc[~p_vals.index.isin(to_keep.index)]
                 geno[to_keep['snp_rs']].to_pickle(path_output_chunk)
                 geno[to_do['snp_rs']].to_pickle(path_chunk)
-
+    snp_ids = pd.concat(snp_ids, axis=0)
+    snp_ids.to_pickle(f"{path_projected}/snp_ids.pkl")
     os.system(f"rm -rf {path_input}")
