@@ -5,9 +5,10 @@ import scipy.stats as stats
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 import pandas as pd
+import numpy as np
 import os
 import math
-
+import shutil
         
         
 def ols_regression(y, X1, covs=None):
@@ -72,3 +73,69 @@ def pca_of_n_snps(path_input, path_output, nr_snps, n_components):
     genos_pca = pd.DataFrame(genos_pca, columns=[f'PC{i+1}' for i in range(n_components)])
     genos_pca.to_pickle(path_output)
     return genos_pca
+
+
+def project_on_dimensions(path_input_raw, path_input, nr_of_projected_dimensions):
+    
+    # Ensure the output directory exists
+    os.makedirs(path_input, exist_ok=True)
+    path_projected = path_input
+    path_input = f"{path_input}/to_do"
+    # Copy all contents from input to output
+    for item in os.listdir(path_input_raw):
+        src_path = os.path.join(path_input_raw, item)
+        dest_path = os.path.join(path_input, item)
+        
+        if os.path.isdir(src_path):
+            shutil.copytree(src_path, dest_path, dirs_exist_ok=True)  # Copy directories
+        else:
+            shutil.copy2(src_path, dest_path)  # Copy files
+
+
+    for i in list(range(nr_of_projected_dimensions)):
+        n_components = 10
+        nr_snps = 20_000
+        path_output_dim = f"{path_projected}/dim_{i+1}/"
+        os.makedirs(path_output_dim, exist_ok=True)
+        genos_pca = pca_of_n_snps(path_input, f"{path_output_dim}/global_PCs.pkl", nr_snps, n_components)
+        
+        chroms = [f for f in os.listdir(path_input) if f.startswith('chrom')]
+
+        for chrom in chroms:
+            path_chrom = f"{path_input}/{chrom}"
+            path_output_chrom = f"{path_output_dim}/{chrom}"
+            os.makedirs(path_output_chrom, exist_ok=True)
+            chunks = os.listdir(path_chrom)
+            for chunk in chunks:
+                path_chunk = f"{path_chrom}/{chunk}"
+                path_chunk_raw = f"{path_input_raw}/{chrom}/{chunk}"
+                path_output_chunk = f"{path_output_chrom}/{chunk}"
+                
+                geno_raw = pd.read_pickle(path_chunk_raw)
+                nr_snps_raw = geno_raw.shape[1]
+                to_take = math.ceil(nr_snps_raw/nr_of_projected_dimensions)
+
+                geno = pd.read_pickle(path_chunk)
+                
+                p_vals = []
+                betas = []
+                snps = []
+                for snp in geno.columns:
+                    [beta_values, p_values] = ols_regression(genos_pca['PC1'], geno[snp], covs=None)
+                    p_vals.append(p_values[snp])
+                    betas.append(beta_values[snp])
+                    snps.append(snp)
+                
+
+                p_vals = pd.DataFrame(data = {'pval': p_vals, 'betas':betas, 'snp_rs':snps})
+                p_vals['-logp'] = -np.log10(p_vals['pval'].replace(0, 1e-300))
+                
+                # Assuming `p_vals` is a pandas DataFrame
+                to_keep = p_vals.sort_values(by='-logp', ascending=False).head(to_take)
+
+                # Filter out rows that are in `to_keep`
+                to_do = p_vals.loc[~p_vals.index.isin(to_keep.index)]
+                geno[to_keep['snp_rs']].to_pickle(path_output_chunk)
+                geno[to_do['snp_rs']].to_pickle(path_chunk)
+
+    os.system(f"rm -rf {path_input}")
