@@ -93,3 +93,18 @@ def divide_into_chunks(path_input, path_afs, path_output, size_chunck, min_maf):
             geno[AF_chunk['snp_rs']].to_pickle(f"{path_output_chrom}/chunk_{i}_size_{len(AF_chunk)}_mafs_{minaf}_{maxaf}.pkl")
     
     
+def align_dataframes(df1, df2, df3):
+    """
+    Ensures that df1, df2, and df3 have exactly the same columns.
+    Any missing columns in one DataFrame cause those columns to be dropped in all others.
+    """
+    # Find common columns across all three dataframes
+    common_columns = set(df1.columns) & set(df2.columns) & set(df3.columns)
+    
+    # Keep only common columns in all DataFrames
+    df1_aligned = df1[list(common_columns)].copy()
+    df2_aligned = df2[list(common_columns)].copy()
+    df3_aligned = df3[list(common_columns)].copy()
+    
+    return df1_aligned, df2_aligned, df3_aligned
+

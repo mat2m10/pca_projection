@@ -66,10 +66,8 @@ def reduce_reconstruct(block, n_components, var_threshold=1e-8):
 
 def linear_abyss(path_input, name_file, path_output, n_components=5, p2=False, twopq = False, q2=False):
     path_ld = f"{path_input}/{name_file}"
-
     block = pd.read_pickle(f"{path_ld}")
-    block = block.fillna(2)
-    block = block - 1
+    block = block.fillna(-1.0)
 
     if q2:
         # Update minor allele mapping
