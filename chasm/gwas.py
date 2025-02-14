@@ -92,57 +92,53 @@ def project_on_dimensions(path_input_raw, path_input, nr_of_projected_dimensions
         nr_snps = 20_000
         path_output_dim = f"{path_projected}/dim_{i+1}/"
         os.makedirs(path_output_dim, exist_ok=True)
-        try:
-            genos_pca = pca_of_n_snps(path_input, f"{path_output_dim}/global_PCs.pkl", nr_snps, n_components)
-            
-            chroms = [f for f in os.listdir(path_input) if f.startswith('chrom')]
+        genos_pca = pca_of_n_snps(path_input, f"{path_output_dim}/global_PCs.pkl", nr_snps, n_components)
+        
+        chroms = [f for f in os.listdir(path_input) if f.startswith('chrom')]
 
-            for chrom in chroms:
-                path_chrom = f"{path_input}/{chrom}"
-                path_output_chrom = f"{path_output_dim}/{chrom}"
-                os.makedirs(path_output_chrom, exist_ok=True)
-                chunks = os.listdir(path_chrom)
-                for chunk in chunks:
-                    path_chunk = f"{path_chrom}/{chunk}"
-                    path_chunk_raw = f"{path_input_raw}/{chrom}/{chunk}"
-                    path_output_chunk = f"{path_output_chrom}/{chunk}"
-                    
-                    geno_raw = pd.read_pickle(path_chunk_raw)
-                    nr_snps_raw = geno_raw.shape[1]
-                    to_take = math.ceil(nr_snps_raw/nr_of_projected_dimensions)
+        for chrom in chroms:
+            path_chrom = f"{path_input}/{chrom}"
+            path_output_chrom = f"{path_output_dim}/{chrom}"
+            os.makedirs(path_output_chrom, exist_ok=True)
+            chunks = os.listdir(path_chrom)
+            for chunk in chunks:
+                path_chunk = f"{path_chrom}/{chunk}"
+                path_chunk_raw = f"{path_input_raw}/{chrom}/{chunk}"
+                path_output_chunk = f"{path_output_chrom}/{chunk}"
+                
+                geno_raw = pd.read_pickle(path_chunk_raw)
+                nr_snps_raw = geno_raw.shape[1]
+                to_take = math.ceil(nr_snps_raw/nr_of_projected_dimensions)
 
-                    geno = pd.read_pickle(path_chunk)
-                    
-                    p_vals = []
-                    betas = []
-                    snps = []
-                    
-                    common_index = genos_pca.index.intersection(geno.index)
-                    genos_pca = genos_pca.loc[common_index]
-                    geno = geno.loc[common_index]
-                    try:
-                        for snp in geno.columns:
-                            [beta_values, p_values] = ols_regression(genos_pca['PC1'], geno[snp], covs=None)
-                            p_vals.append(p_values[snp])
-                            betas.append(beta_values[snp])
-                            snps.append(snp)
-                    except Exception as e:
-                        pass
+                geno = pd.read_pickle(path_chunk)
+                
+                p_vals = []
+                betas = []
+                snps = []
+                
+                common_index = genos_pca.index.intersection(geno.index)
+                genos_pca = genos_pca.loc[common_index]
+                geno = geno.loc[common_index]
+                for snp in geno.columns:
+                    [beta_values, p_values] = ols_regression(genos_pca['PC1'], geno[snp], covs=None)
+                    p_vals.append(p_values[snp])
+                    betas.append(beta_values[snp])
+                    snps.append(snp)
 
-                    p_vals = pd.DataFrame(data = {'pval': p_vals, 'betas':betas, 'snp_rs':snps})
-                    p_vals['-logp'] = -np.log10(p_vals['pval'].replace(0, 1e-300))
-                    
-                    # Assuming `p_vals` is a pandas DataFrame
-                    to_keep = p_vals.sort_values(by='-logp', ascending=False).head(to_take)
-                    to_keep['dim'] = i+1
-                    snp_ids.append(to_keep)
-                    
-                    # Filter out rows that are in `to_keep`
-                    to_do = p_vals.loc[~p_vals.index.isin(to_keep.index)]
-                    geno[to_keep['snp_rs']].to_pickle(path_output_chunk)
-                    geno[to_do['snp_rs']].to_pickle(path_chunk)
-        except Exception as e:
-            pass
+
+                p_vals = pd.DataFrame(data = {'pval': p_vals, 'betas':betas, 'snp_rs':snps})
+                p_vals['-logp'] = -np.log10(p_vals['pval'].replace(0, 1e-300))
+                
+                # Assuming `p_vals` is a pandas DataFrame
+                to_keep = p_vals.sort_values(by='-logp', ascending=False).head(to_take)
+                to_keep['dim'] = i+1
+                snp_ids.append(to_keep)
+                
+                # Filter out rows that are in `to_keep`
+                to_do = p_vals.loc[~p_vals.index.isin(to_keep.index)]
+                geno[to_keep['snp_rs']].to_pickle(path_output_chunk)
+                geno[to_do['snp_rs']].to_pickle(path_chunk)
+
     snp_ids = pd.concat(snp_ids, axis=0)
     snp_ids.to_pickle(f"{path_projected}/snp_ids.pkl")
     os.system(f"rm -rf {path_input}")
