@@ -10,14 +10,31 @@ def is_snp(col):
     return any(char.isdigit() for char in col)
 
 def make_df(path_input, path_usefull, path_output):
-
     geno = pd.read_csv(path_input, sep=" ")
+    
+    # Identify non-SNP columns
     non_snp_cols = [col for col in geno.columns if not is_snp(col)]
+    
     os.makedirs(path_usefull, exist_ok=True)
-    geno[non_snp_cols].to_pickle(f"{path_usefull}/ids.pkl")
-    geno = geno.drop(columns=non_snp_cols)
+    
+    if non_snp_cols:
+        # Save non-SNP columns as a DataFrame
+        ids_df = geno[non_snp_cols].copy()  # Avoid SettingWithCopyWarning
+        ids_df["index"] = ids_df.index  # Store index as a separate column
+        ids_df.reset_index(drop=True, inplace=True)  # Reset index before saving
+        ids_df.to_pickle(f"{path_usefull}/ids.pkl")
+        
+        geno = geno.drop(columns=non_snp_cols)
+    else:
+        # Save the index as a DataFrame
+        ids_df = pd.DataFrame(geno.index, columns=["index"])
+        ids_df.to_pickle(f"{path_usefull}/ids.pkl")
+    
     os.makedirs(path_output, exist_ok=True)
+    
+    # Save the SNP genotype data
     geno.to_pickle(f"{path_output}/geno.pkl")
+    
     return geno
     
 def calculate_AFs(geno):

@@ -7,9 +7,6 @@ import requests
 import gzip
 import subprocess
 
-def test():
-    return "hello"
-
 """
     This function takes the path to the plink file and the path to the output directory
     and returns the allele frequencies of the plink file(s).
