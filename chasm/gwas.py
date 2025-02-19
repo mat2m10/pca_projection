@@ -76,36 +76,39 @@ def pca_of_n_snps(path_macro_similar, path_output, temp_ids, nr_snps, n_componen
     return genos_pca
 
 
-def project_on_dimensions(path_macro_similar, path_output, PCs, temp_ids, nr_of_projected_dimensions):
+def project_on_dimensions(path_macro_similar, path_output, temp_ids, nr_of_projected_dimensions=3, nr_snps = 20_000, n_components = 10):
+    path_output_to_do = f"{path_output}/to_do/"
     
-    # Ensure the output directory exists
-    os.makedirs(path_input, exist_ok=True)
-    path_projected = path_input
-    path_input = f"{path_input}/to_do/"
-    os.makedirs(path_input, exist_ok=True)
-    # Copy all contents from input to output
-    for item in os.listdir(path_macro_similar):
+    # Copy all contents from input to output to do
+    for chrom in [f for f in os.listdir(path_macro_similar) if f.startswith("chrom")]:
+        path_chrom = f"{path_macro_similar}/{chrom}"
         
-        os.system(f"cp -r {path_input_raw}/{item} {path_input}")
+        for chunk in [f for f in os.listdir(path_chrom) if f.startswith("chunk")]:
+            path_chunk = f"{path_chrom}/{chunk}"
+            geno = pd.read_pickle(path_chunk)
+            geno = geno.loc[temp_ids['index']]
+            os.makedirs(f"{path_output_to_do}/{chrom}/", exist_ok=True)
+            geno.to_pickle(f"{path_output_to_do}/{chrom}/{chunk}")
     
+    path_input = path_output
+    path_input_to_do = f"{path_input}/to_do/"
     snp_ids = []
+    
     for i in list(range(nr_of_projected_dimensions)):
-        n_components = 10
-        nr_snps = 20_000
-        path_output_dim = f"{path_projected}/dim_{i+1}/"
+        path_output_dim = f"{path_input}/dim_{i+1}/"
         os.makedirs(path_output_dim, exist_ok=True)
-        genos_pca = pca_of_n_snps(path_input, path_output_dim, nr_snps, n_components)
+        PCs = pca_of_n_snps(path_input_to_do, path_output_dim, temp_ids, nr_snps, n_components)
         
-        chroms = [f for f in os.listdir(path_input) if f.startswith('chrom')]
-
+        chroms = [f for f in os.listdir(path_input_to_do) if f.startswith('chrom')]
+        
         for chrom in chroms:
-            path_chrom = f"{path_input}/{chrom}"
+            path_chrom = f"{path_input_to_do}/{chrom}"
             path_output_chrom = f"{path_output_dim}/{chrom}"
             os.makedirs(path_output_chrom, exist_ok=True)
             chunks = os.listdir(path_chrom)
             for chunk in chunks:
                 path_chunk = f"{path_chrom}/{chunk}"
-                path_chunk_raw = f"{path_input_raw}/{chrom}/{chunk}"
+                path_chunk_raw = f"{path_macro_similar}/{chrom}/{chunk}"
                 path_output_chunk = f"{path_output_chrom}/{chunk}"
                 
                 geno_raw = pd.read_pickle(path_chunk_raw)
@@ -114,20 +117,19 @@ def project_on_dimensions(path_macro_similar, path_output, PCs, temp_ids, nr_of_
 
                 geno = pd.read_pickle(path_chunk)
                 
+                
                 p_vals = []
                 betas = []
                 snps = []
                 
-                common_index = genos_pca.index.intersection(geno.index)
-                genos_pca = genos_pca.loc[common_index]
-                geno = geno.loc[common_index]
                 for snp in geno.columns:
-                    [beta_values, p_values] = ols_regression(genos_pca['PC1'], geno[snp], covs=None)
+                    y = PCs[['PC1']].reset_index(drop=True)
+                    X1 = geno[[snp]].reset_index(drop=True)
+                    [beta_values, p_values] = ols_regression(y['PC1'], X1[snp], covs=None)
                     p_vals.append(p_values[snp])
                     betas.append(beta_values[snp])
                     snps.append(snp)
-
-
+                    
                 p_vals = pd.DataFrame(data = {'pval': p_vals, 'betas':betas, 'snp_rs':snps})
                 p_vals['-logp'] = -np.log10(p_vals['pval'].replace(0, 1e-300))
                 
@@ -140,7 +142,7 @@ def project_on_dimensions(path_macro_similar, path_output, PCs, temp_ids, nr_of_
                 to_do = p_vals.loc[~p_vals.index.isin(to_keep.index)]
                 geno[to_keep['snp_rs']].to_pickle(path_output_chunk)
                 geno[to_do['snp_rs']].to_pickle(path_chunk)
-
+    
     snp_ids = pd.concat(snp_ids, axis=0)
-    snp_ids.to_pickle(f"{path_projected}/snp_ids.pkl")
-    os.system(f"rm -rf {path_input}")
+    snp_ids.to_pickle(f"{path_output}/snp_ids.pkl")
+    os.system(f"rm -rf {path_input_to_do}")
