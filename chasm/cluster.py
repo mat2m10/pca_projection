@@ -10,7 +10,7 @@ def silhouette_score_clusters(data, dims, plot=False):
 
     # Run K-means for each value of K and calculate silhouette score
     for k in k_values:
-        kmeans = KMeans(n_clusters=k, random_state=42)
+        kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
         labels = kmeans.fit_predict(data[dims])
         score = silhouette_score(data[dims], labels)
         silhouette_scores.append(score)

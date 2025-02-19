@@ -41,18 +41,19 @@ def ols_regression(y, X1, covs=None):
     
     return beta_values, p_values
 
-def pca_of_n_snps(path_input, path_output, nr_snps, n_components):
-    chroms = os.listdir(path_input)
+def pca_of_n_snps(path_macro_similar, path_output, temp_ids, nr_snps, n_components):
+    chroms = os.listdir(path_macro_similar)
     nr_snps_for_PCA_per_chrom = math.ceil(nr_snps/len(chroms))
     genos = []
     for chrom in chroms:
-        path_chrom = f"{path_input}/{chrom}"
+        path_chrom = f"{path_macro_similar}/{chrom}"
         chunks = os.listdir(path_chrom)
         nr_snps_for_PCA_per_chunks = math.ceil(nr_snps_for_PCA_per_chrom / len(chunks))
 
         for chunk in chunks:
             path_chunk = f"{path_chrom}/{chunk}"
             geno = pd.read_pickle(path_chunk)
+            geno = geno.loc[temp_ids['index']]
             # Get number of available columns
             num_available_columns = geno.shape[1]
 
@@ -71,11 +72,11 @@ def pca_of_n_snps(path_input, path_output, nr_snps, n_components):
 
     # Convert PCA output to DataFrame
     genos_pca = pd.DataFrame(genos_pca, columns=[f'PC{i+1}' for i in range(n_components)])
-    genos_pca.to_pickle(path_output)
+    genos_pca.to_pickle(f"{path_output}/global_PCs.pkl")
     return genos_pca
 
 
-def project_on_dimensions(path_input_raw, path_input, nr_of_projected_dimensions):
+def project_on_dimensions(path_macro_similar, path_output, PCs, temp_ids, nr_of_projected_dimensions):
     
     # Ensure the output directory exists
     os.makedirs(path_input, exist_ok=True)
@@ -83,7 +84,8 @@ def project_on_dimensions(path_input_raw, path_input, nr_of_projected_dimensions
     path_input = f"{path_input}/to_do/"
     os.makedirs(path_input, exist_ok=True)
     # Copy all contents from input to output
-    for item in os.listdir(path_input_raw):
+    for item in os.listdir(path_macro_similar):
+        
         os.system(f"cp -r {path_input_raw}/{item} {path_input}")
     
     snp_ids = []
@@ -92,7 +94,7 @@ def project_on_dimensions(path_input_raw, path_input, nr_of_projected_dimensions
         nr_snps = 20_000
         path_output_dim = f"{path_projected}/dim_{i+1}/"
         os.makedirs(path_output_dim, exist_ok=True)
-        genos_pca = pca_of_n_snps(path_input, f"{path_output_dim}/global_PCs.pkl", nr_snps, n_components)
+        genos_pca = pca_of_n_snps(path_input, path_output_dim, nr_snps, n_components)
         
         chroms = [f for f in os.listdir(path_input) if f.startswith('chrom')]
 
