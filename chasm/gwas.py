@@ -41,7 +41,7 @@ def ols_regression(y, X1, covs=None):
     
     return beta_values, p_values
 
-def pca_of_n_snps(path_macro_similar, path_output, temp_ids, nr_snps, n_components):
+def pca_of_n_snps(path_macro_similar, path_output, name_file, temp_ids, nr_snps, n_components):
     chroms = os.listdir(path_macro_similar)
     nr_snps_for_PCA_per_chrom = math.ceil(nr_snps/len(chroms))
     genos = []
@@ -72,7 +72,7 @@ def pca_of_n_snps(path_macro_similar, path_output, temp_ids, nr_snps, n_componen
 
     # Convert PCA output to DataFrame
     genos_pca = pd.DataFrame(genos_pca, columns=[f'PC{i+1}' for i in range(n_components)])
-    genos_pca.to_pickle(f"{path_output}/global_PCs.pkl")
+    genos_pca.to_pickle(f"{path_output}/{name_file}")
     return genos_pca
 
 
@@ -95,9 +95,10 @@ def project_on_dimensions(path_macro_similar, path_output, temp_ids, nr_of_proje
     snp_ids = []
     
     for i in list(range(nr_of_projected_dimensions)):
-        path_output_dim = f"{path_input}/dim_{i+1}/"
+        path_output_dim = f"{path_input}"
         os.makedirs(path_output_dim, exist_ok=True)
-        PCs = pca_of_n_snps(path_input_to_do, path_output_dim, temp_ids, nr_snps, n_components)
+        name_file = f"PCs_dim_{i+1}.pkl"
+        PCs = pca_of_n_snps(path_input_to_do, path_output_dim, name_file, temp_ids, nr_snps, n_components)
         
         chroms = [f for f in os.listdir(path_input_to_do) if f.startswith('chrom')]
         
