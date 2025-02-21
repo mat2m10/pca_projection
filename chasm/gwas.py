@@ -104,13 +104,13 @@ def project_on_dimensions(path_macro_similar, path_output, temp_ids, nr_of_proje
         
         for chrom in chroms:
             path_chrom = f"{path_input_to_do}/{chrom}"
-            path_output_chrom = f"{path_output_dim}/{chrom}"
-            os.makedirs(path_output_chrom, exist_ok=True)
+            #path_output_chrom = f"{path_output_dim}/{chrom}"
+            #os.makedirs(path_output_chrom, exist_ok=True)
             chunks = os.listdir(path_chrom)
             for chunk in chunks:
                 path_chunk = f"{path_chrom}/{chunk}"
                 path_chunk_raw = f"{path_macro_similar}/{chrom}/{chunk}"
-                path_output_chunk = f"{path_output_chrom}/{chunk}"
+                #path_output_chunk = f"{path_output_chrom}/{chunk}"
                 
                 geno_raw = pd.read_pickle(path_chunk_raw)
                 nr_snps_raw = geno_raw.shape[1]
@@ -141,7 +141,7 @@ def project_on_dimensions(path_macro_similar, path_output, temp_ids, nr_of_proje
                 
                 # Filter out rows that are in `to_keep`
                 to_do = p_vals.loc[~p_vals.index.isin(to_keep.index)]
-                geno[to_keep['snp_rs']].to_pickle(path_output_chunk)
+                #geno[to_keep['snp_rs']].to_pickle(path_output_chunk)
                 geno[to_do['snp_rs']].to_pickle(path_chunk)
     
     snp_ids = pd.concat(snp_ids, axis=0)
