@@ -29,8 +29,15 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.feature_selection import VarianceThreshold
-    
-    
+from sklearn.model_selection import train_test_split
+
+from tensorflow.keras import regularizers
+from tensorflow.keras.callbacks import EarlyStopping
+import tensorflow as tf
+
+from tensorflow.keras import Input, Model, layers, regularizers
+from tensorflow.keras.layers import Input, Dense
+
 def reduce_reconstruct(block, n_components, var_threshold=1e-8):
     # Remove near-constant features
     try:
@@ -103,3 +110,47 @@ def linear_abyss(path_input, name_file, path_output, n_components=5, p2=False, t
         path_major = f"{path_output}/p2/"
         os.makedirs(path_major, exist_ok=True)
         db_major_rec.to_pickle(f"{path_major}/{name_file}")
+
+
+def AE(geno, bottleneck_nr, hidden, epoch, patience):
+
+    # Ensure input is a NumPy array
+    if isinstance(geno, pd.DataFrame):
+        geno = geno.to_numpy()
+
+    # Split data
+    X_train, X_test, y_train, y_test = train_test_split(geno, geno, test_size=0.2, random_state=42)
+
+    # Regularization
+    l2_regularizer = 0.001
+
+    # Functional API for better flexibility
+    input_layer = tf.keras.Input(shape=(geno.shape[1],))
+
+    # Encoder
+    encoder_hidden = tf.keras.layers.Dense(hidden, activation='elu', kernel_regularizer=regularizers.l2(l2_regularizer))(input_layer)
+    encoder_hidden_bn = tf.keras.layers.BatchNormalization()(encoder_hidden)
+    bottleneck = tf.keras.layers.Dense(bottleneck_nr, activation='elu', name='bottleneck', kernel_regularizer=regularizers.l2(l2_regularizer))(encoder_hidden_bn)
+    bottleneck_bn = tf.keras.layers.BatchNormalization()(bottleneck)
+
+    # Decoder
+    decoder_hidden = tf.keras.layers.Dense(hidden, activation='elu', kernel_regularizer=regularizers.l2(l2_regularizer))(bottleneck_bn)
+    decoder_hidden_bn = tf.keras.layers.BatchNormalization()(decoder_hidden)
+    output_layer = tf.keras.layers.Dense(geno.shape[1], activation='elu', kernel_regularizer=regularizers.l2(l2_regularizer))(decoder_hidden_bn)
+
+    # Build model
+    autoencoder = tf.keras.Model(inputs=input_layer, outputs=output_layer)
+
+    # Compile the model
+    autoencoder.compile(optimizer='adam', loss='mean_squared_error', metrics=['mean_absolute_error'])
+
+    # Early stopping callback (this was missing)
+    early_stopping = EarlyStopping(monitor='val_loss', patience=patience, restore_best_weights=True)
+
+    # Fit model
+    history = autoencoder.fit(X_train, y_train, epochs=epoch, batch_size=32, validation_split=0.2, callbacks=[early_stopping], verbose=0)
+
+    # Extract bottleneck
+    bottleneck_model = tf.keras.Model(inputs=input_layer, outputs=bottleneck)
+
+    return autoencoder, bottleneck_model, history

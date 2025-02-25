@@ -13,3 +13,4 @@ statsmodels  # Tool for statistical calculations
 jupyter  # Enable to open jupyter notebook
 hdbscan  # Hierarchical Density-Based Spatial Clustering of Applications with Noise
 umap-learn
+tensorflow-keras
