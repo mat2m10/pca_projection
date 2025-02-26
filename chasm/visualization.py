@@ -21,3 +21,26 @@ def make_population_plot(df, X, Y, hue, title, palette = 'rocket'):
 
     # Show the plot
     plt.show()
+    
+    
+def plot_training_history(history):
+    plt.figure(figsize=(10, 6))
+    
+    # Extract loss values
+    loss = history.history['loss']
+    val_loss = history.history.get('val_loss', None)  # Use get() in case val_loss is missing
+    
+    epochs = range(1, len(loss) + 1)
+
+    # Plot Training Loss
+    plt.plot(epochs, loss, 'bo-', label='Training Loss')
+
+    # Plot Validation Loss if available
+    if val_loss:
+        plt.plot(epochs, val_loss, 'ro-', label='Validation Loss')
+
+    plt.title('Training and Validation Loss')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.show()

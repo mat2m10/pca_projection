@@ -31,12 +31,15 @@ from sklearn.decomposition import PCA
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.model_selection import train_test_split
 
-from tensorflow.keras import regularizers
-from tensorflow.keras.callbacks import EarlyStopping
-import tensorflow as tf
 
-from tensorflow.keras import Input, Model, layers, regularizers
-from tensorflow.keras.layers import Input, Dense
+
+import tensorflow as tf
+from keras.models import Model
+from keras.layers import Input, Dense
+from keras.callbacks import EarlyStopping
+from keras.optimizers import Adam
+from sklearn.model_selection import train_test_split
+import math
 
 def reduce_reconstruct(block, n_components, var_threshold=1e-8):
     # Remove near-constant features
@@ -128,15 +131,15 @@ def AE(geno, bottleneck_nr, hidden, epoch, patience):
     input_layer = tf.keras.Input(shape=(geno.shape[1],))
 
     # Encoder
-    encoder_hidden = tf.keras.layers.Dense(hidden, activation='elu', kernel_regularizer=regularizers.l2(l2_regularizer))(input_layer)
+    encoder_hidden = tf.keras.layers.Dense(hidden, activation='elu', kernel_regularizer=tf.keras.regularizers.l2(l2_regularizer))(input_layer)
     encoder_hidden_bn = tf.keras.layers.BatchNormalization()(encoder_hidden)
-    bottleneck = tf.keras.layers.Dense(bottleneck_nr, activation='elu', name='bottleneck', kernel_regularizer=regularizers.l2(l2_regularizer))(encoder_hidden_bn)
+    bottleneck = tf.keras.layers.Dense(bottleneck_nr, activation='elu', name='bottleneck', kernel_regularizer=tf.keras.regularizers.l2(l2_regularizer))(encoder_hidden_bn)
     bottleneck_bn = tf.keras.layers.BatchNormalization()(bottleneck)
 
     # Decoder
-    decoder_hidden = tf.keras.layers.Dense(hidden, activation='elu', kernel_regularizer=regularizers.l2(l2_regularizer))(bottleneck_bn)
+    decoder_hidden = tf.keras.layers.Dense(hidden, activation='elu', kernel_regularizer=tf.keras.regularizers.l2(l2_regularizer))(bottleneck_bn)
     decoder_hidden_bn = tf.keras.layers.BatchNormalization()(decoder_hidden)
-    output_layer = tf.keras.layers.Dense(geno.shape[1], activation='elu', kernel_regularizer=regularizers.l2(l2_regularizer))(decoder_hidden_bn)
+    output_layer = tf.keras.layers.Dense(geno.shape[1], activation='elu', kernel_regularizer=tf.keras.regularizers.l2(l2_regularizer))(decoder_hidden_bn)
 
     # Build model
     autoencoder = tf.keras.Model(inputs=input_layer, outputs=output_layer)
@@ -154,3 +157,52 @@ def AE(geno, bottleneck_nr, hidden, epoch, patience):
     bottleneck_model = tf.keras.Model(inputs=input_layer, outputs=bottleneck)
 
     return autoencoder, bottleneck_model, history
+
+
+
+def get_hidden_layers(entry, exit, nr_hidden):
+    to_add = math.floor((exit - entry) / (nr_hidden + 1))
+    return [entry + (i + 1) * to_add for i in range(nr_hidden)]
+
+def decoder(input_df, output_df, nr_hidden_layers, epoch, patience, test_size=0.2, random_state=42):
+    # Convert DataFrames to NumPy arrays
+    input = input_df.to_numpy().astype('float32')
+    output = output_df.to_numpy().astype('float32')
+
+    # Train-test split
+    X_train, X_test, y_train, y_test = train_test_split(input, output, test_size=test_size, random_state=random_state)
+
+    nr_entry = input.shape[1]
+    nr_exit = output.shape[1]
+
+    # Get hidden layer sizes
+    hidden_layers = get_hidden_layers(nr_entry, nr_exit, nr_hidden_layers)
+
+    # Build model
+    input_layer = tf.keras.Input(shape=(nr_entry,))
+    hidden = Dense(hidden_layers[0], activation='relu')(input_layer)
+ 
+    for i in range(nr_hidden_layers - 1):
+        hidden = Dense(hidden_layers[i + 1], activation='relu')(hidden)
+
+    output_layer = Dense(nr_exit, activation='linear')(hidden)
+
+    # Compile model
+    model = Model(inputs=input_layer, outputs=output_layer)
+    model.compile(optimizer=Adam(), loss='mean_squared_error', metrics=['mae'])
+
+    # Early stopping
+    early_stopping = EarlyStopping(monitor='val_loss', patience=patience, restore_best_weights=True)
+
+    # Train model with validation
+    history = model.fit(X_train, y_train, 
+                        epochs=epoch, 
+                        validation_data=(X_test, y_test),
+                        callbacks=[early_stopping], 
+                        verbose=0)
+
+    # Evaluate on test data
+    test_loss, test_mae = model.evaluate(X_test, y_test, verbose=0)
+    print(f"Test Loss: {test_loss:.4f}, Test MAE: {test_mae:.4f}")
+
+    return model, history
