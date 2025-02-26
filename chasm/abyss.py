@@ -203,6 +203,5 @@ def decoder(input_df, output_df, nr_hidden_layers, epoch, patience, test_size=0.
 
     # Evaluate on test data
     test_loss, test_mae = model.evaluate(X_test, y_test, verbose=0)
-    print(f"Test Loss: {test_loss:.4f}, Test MAE: {test_mae:.4f}")
 
     return model, history
