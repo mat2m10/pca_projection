@@ -5,33 +5,12 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
     
     
-import os
-import pandas as pd
 import numpy as np
 
-from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
-from sklearn.feature_selection import VarianceThreshold
-    
-    
-import os
-import pandas as pd
-import numpy as np
-
-from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
 from sklearn.feature_selection import VarianceThreshold
 
-import os
-import pandas as pd
-import numpy as np
-
-from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
-from sklearn.feature_selection import VarianceThreshold
-from sklearn.model_selection import train_test_split
-
-
+from keras.models import Model
+from keras.layers import Input
 
 import tensorflow as tf
 from keras.models import Model
@@ -205,3 +184,23 @@ def decoder(input_df, output_df, nr_hidden_layers, epoch, patience, test_size=0.
     test_loss, test_mae = model.evaluate(X_test, y_test, verbose=0)
 
     return model, history
+
+
+
+def create_meta_decoder_n(decoder_list):
+
+    if not decoder_list:
+        raise ValueError("Decoder list is empty!")
+
+    # Step 1: Define input based on the first decoder
+    input_layer = Input(shape=(decoder_list[0].input_shape[1],))
+    x = input_layer
+
+    # Step 2: Chain all decoders
+    for decoder in decoder_list:
+        x = decoder(x)
+
+    # Step 3: Create combined model
+    meta_decoder = Model(inputs=input_layer, outputs=x)
+
+    return meta_decoder
