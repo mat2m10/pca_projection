@@ -2,7 +2,12 @@
 import os
 import pandas as pd
 import numpy as np
+import pandas as pd
+import numpy as np
 
+from sklearn.preprocessing import StandardScaler
+from k_means_constrained import KMeansConstrained
+from sklearn.decomposition import PCA
 """
 Check if the columns are SNPs
 """
@@ -109,7 +114,74 @@ def divide_into_chunks(path_input, path_afs, path_output, size_chunck, min_maf):
             maxaf = np.round(AF_chunk['AF'].max(),2)
             geno[AF_chunk['snp_rs']].to_pickle(f"{path_output_chrom}/chunk_{i}_size_{len(AF_chunk)}_mafs_{minaf}_{maxaf}.pkl")
     
+
+
+
+def divide_into_lds(path_input, path_output, name_file, n_components, size_block):
+    # Load SNP data
+    chunk = pd.read_pickle(f"{path_input}/{name_file}.pkl")
     
+    snp_cols = chunk.columns
+    size_chunck = chunk.shape[1]  # Total number of SNPs
+    
+    # Standardize SNP data
+    snps = chunk.T
+    scaler = StandardScaler()
+    scaled_snps = scaler.fit_transform(snps)
+    
+    # Adjust PCA components to avoid exceeding the number of SNPs
+    max_components = min(size_chunck, n_components)
+    pca = PCA(n_components=max_components)
+    reduced_data = pca.fit_transform(scaled_snps)
+
+    # Adjust block size to ensure it's feasible
+    size_block = min(size_block, size_chunck)
+    
+    # Determine the number of clusters
+    n_clusters = max(1, size_chunck // size_block)
+
+    # Ensure clustering constraints are valid
+    size_min = max(1, int(size_block * 0.8))  # Ensure at least 1 SNP per cluster
+    size_max = min(int(size_block * 1.2), size_chunck)  # Ensure it doesn’t exceed total SNPs
+
+    # Ensure constraints allow a feasible partition
+    if size_min * n_clusters > size_chunck:
+        size_min = None  # Remove lower bound constraint
+    if size_max * n_clusters < size_chunck:
+        size_max = size_chunck // n_clusters
+
+    if n_clusters > size_chunck:
+        n_clusters = size_chunck  # Prevent more clusters than SNPs
+
+    try:
+        # Apply constrained K-Means clustering
+        clf = KMeansConstrained(
+            n_clusters=n_clusters,
+            size_min=size_min,
+            size_max=size_max,
+            random_state=0
+        )
+        
+        # Fit and predict clustering
+        cluster_labels = clf.fit_predict(reduced_data)
+
+        # Ensure the number of labels matches the SNPs
+        if len(cluster_labels) != snps.shape[0]:
+            raise ValueError(f"Mismatch between cluster labels ({len(cluster_labels)}) and SNPs ({snps.shape[0]}).")
+
+        # Assign LD block labels
+        snps['ld_block'] = cluster_labels
+
+        # Save LD blocks
+        for ld_block_nr in snps['ld_block'].unique():
+            ld_block = snps[snps['ld_block'] == ld_block_nr].drop(columns='ld_block').T
+            size_snps = ld_block.shape[1]
+            ld_block.to_pickle(f"{path_output}/block_{ld_block_nr}_size_{size_snps}_from_{name_file}.pkl")
+
+    except Exception as e:
+        print(f"Error during clustering: {e}")
+        print(f"n_clusters: {n_clusters}, size_min: {size_min}, size_max: {size_max}, num SNPs: {size_chunck}")
+
 def align_dataframes(df1, df2, df3):
     """
     Ensures that df1, df2, and df3 have exactly the same columns.

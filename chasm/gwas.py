@@ -83,7 +83,7 @@ def project_on_dimensions(path_macro_similar, path_output, temp_ids, nr_of_proje
     for chrom in [f for f in os.listdir(path_macro_similar) if f.startswith("chrom")]:
         path_chrom = f"{path_macro_similar}/{chrom}"
         
-        for chunk in [f for f in os.listdir(path_chrom) if f.startswith("chunk")]:
+        for chunk in [f for f in os.listdir(path_chrom) if f.startswith("block")]:
             path_chunk = f"{path_chrom}/{chunk}"
             geno = pd.read_pickle(path_chunk)
             geno = geno.loc[temp_ids['index']]
