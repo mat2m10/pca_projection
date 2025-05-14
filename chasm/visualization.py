@@ -20,7 +20,8 @@ def make_population_plot(df, X, Y, hue, title, palette = 'rocket'):
     plt.tight_layout()
 
     # Show the plot
-    plt.show()
+    return plt
+    #plt.show()
     
     
 def plot_training_history(history):
